@@ -1,0 +1,22 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "DomainQ", "DomainQ\DomainQ.fsproj", "{ADA30C8D-5C5C-47F1-B57B-C3E4B1680A80}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "DomainQ.Tests", "DomainQ.Tests\DomainQ.Tests.fsproj", "{94BD0339-619F-4351-86FC-983DCF71D780}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{ADA30C8D-5C5C-47F1-B57B-C3E4B1680A80}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{ADA30C8D-5C5C-47F1-B57B-C3E4B1680A80}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{ADA30C8D-5C5C-47F1-B57B-C3E4B1680A80}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{ADA30C8D-5C5C-47F1-B57B-C3E4B1680A80}.Release|Any CPU.Build.0 = Release|Any CPU
+		{94BD0339-619F-4351-86FC-983DCF71D780}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{94BD0339-619F-4351-86FC-983DCF71D780}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{94BD0339-619F-4351-86FC-983DCF71D780}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{94BD0339-619F-4351-86FC-983DCF71D780}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
