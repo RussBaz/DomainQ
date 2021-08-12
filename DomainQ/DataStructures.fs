@@ -44,6 +44,9 @@ module QueueSize =
     let value ( QueueSize v ) = v
    
 type BoundedMb<'T> internal ( capacity: int ) =
+    do
+        if capacity < 1 then failwith "BoundedMb capacity must be larger than 0"
+    
     let agent = MailboxProcessor.Start <| fun inbox ->
         let queue = Queue<_> ()
         let isWithinMaxCapacity = queue.Count < capacity
