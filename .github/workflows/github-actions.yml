@@ -1,4 +1,4 @@
-name: fsharp tests
+name: .NET Core
 
 on: [push]
 

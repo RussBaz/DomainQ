@@ -1,4 +1,5 @@
 # DomainQ
+![.NET Core Build Status](https://github.com/russbaz/domainq/actions/workflows/github-actions.yml/badge.svg?branch=master)
 
 F# Bounded Mailbox and other types of queues and simple synchronisation primitives for Async workflows with a secret sauce.
 
