@@ -1,6 +1,5 @@
-module DomainQ.Tests
+module DomainQ.Tests.BoundedMbTests
 
-open System
 open NUnit.Framework
 open FsUnitTyped
 

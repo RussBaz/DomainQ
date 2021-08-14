@@ -166,7 +166,7 @@ module WriteOnlyQueue =
             for i in BoundedMb.stream q do
                 do! handler i
         }
-        |> Async.Start
+        |> Async.StartImmediate
         
         WriteOnlyQueueWrapper q :> IWriteOnlyQueue<'T>
         
@@ -235,7 +235,7 @@ module SVar =
         | Ok _ -> ()
         | Error _ -> failwith "IVar is already filled"
     }
-    let tryFill ( m: 'T ) ( mb: IVar<'T> ) : Async<unit> = mb.Fill m |> Async.Ignore
+    let tryFill ( m: 'T ) ( mb: IVar<'T> ) = mb.Fill m
     let read ( mb: IVar<'T> ) : Async<'T> = mb.Read ()
     let isFilled ( mb: IVar<_> ) : bool =
         async {
