@@ -6,7 +6,6 @@
     <WarnOn>3390;$(WarnOn)</WarnOn>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="Library.fs" />
     <Compile Include="DataStructures.fs" />
   </ItemGroup>
   <Import Project="..\.paket\Paket.Restore.targets" />

@@ -6,7 +6,7 @@
     <GenerateProgramFile>false</GenerateProgramFile>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="UnitTest1.fs" />
+    <Compile Include="BoundedMbTests.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>

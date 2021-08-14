@@ -9,6 +9,7 @@ type QueueSize = QueueSize of int
 type SVarResult = Result<unit, unit>
 
 type IDomainQueue =
+    abstract member Id: Guid
     abstract member Capacity: int
     abstract member Count: unit -> Async<int>
 
@@ -47,6 +48,7 @@ type BoundedMb<'T> internal ( capacity: int ) =
     do
         if capacity < 1 then failwith "BoundedMb capacity must be larger than 0"
     
+    let queueId = Guid.NewGuid ()
     let agent = MailboxProcessor.Start <| fun inbox ->
         let queue = Queue<_> ()
         let isWithinMaxCapacity = queue.Count < capacity
@@ -98,6 +100,7 @@ type BoundedMb<'T> internal ( capacity: int ) =
         loop ()
         
     interface IDomainQueue with
+        member _.Id = queueId
         member _.Capacity = capacity
         member this.Count () =
             agent.PostAndAsyncReply Count
@@ -114,14 +117,22 @@ type BoundedMb<'T> internal ( capacity: int ) =
         member _.Dispose () = ( agent :> IDisposable ).Dispose ()
         
 type WriteOnlyQueueWrapper<'T> internal ( ofQ: IWriteOnlyQueue<'T> ) =
+    let queueId = Guid.NewGuid ()
+    member _.WrappedId = ofQ.Id
+    
     interface IWriteOnlyQueue<'T> with
         member _.Put ( a: 'T ) = ofQ.Put a
+        member _.Id = queueId
         member _.Capacity = ofQ.Capacity
         member _.Count () = ofQ.Count ()
     
 type ReadOnlyQueueWrapper<'T> internal ( ofQ: IReadOnlyQueue<'T> ) =
+    let queueId = Guid.NewGuid ()
+    member _.WrappedId = ofQ.Id
+    
     interface IReadOnlyQueue<'T> with
         member _.Take () = ofQ.Take ()
+        member _.Id = queueId
         member _.Capacity = ofQ.Capacity
         member _.Count () = ofQ.Count ()
     
@@ -139,6 +150,7 @@ module BoundedMb =
         
         yield! loop ()
     }
+    let id ( mb: IDomainQueue ) = mb.Id
     let capacity ( mb: IDomainQueue ) = mb.Capacity |> QueueSize
     let count ( mb: IDomainQueue ) : Async<int> = mb.Count ()
     let isFull ( mb: IDomainQueue ) : Async<bool> = async {
@@ -158,10 +170,10 @@ module WriteOnlyQueue =
         
         WriteOnlyQueueWrapper q :> IWriteOnlyQueue<'T>
         
-    let ofBoundedMb ( m: BoundedMb<'T> ) = WriteOnlyQueueWrapper m :> IWriteOnlyQueue<'T>
+    let ofBoundedMb ( m: IWriteOnlyQueue<'T> ) = WriteOnlyQueueWrapper m :> IWriteOnlyQueue<'T>
     
 module ReadOnlyQueue =
-    let ofBoundedMb ( m: BoundedMb<'T> ) = ReadOnlyQueueWrapper m :> IReadOnlyQueue<'T>
+    let ofBoundedMb ( m: IReadOnlyQueue<'T> ) = ReadOnlyQueueWrapper m :> IReadOnlyQueue<'T>
     
 type SVar<'T> internal () =
     let agent = MailboxProcessor.Start <| fun inbox ->
