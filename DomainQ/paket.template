@@ -1,0 +1,9 @@
+type project
+id RussBaz.DomainQ
+version 1.0.0
+authors RussBaz
+licenseExpression MIT
+description
+  Bounded Mailbox (with max capacity) for F# Async workflows and other related synchronisation / utility types - spiced with the Secret Sauce.
+projectUrl https://github.com/RussBaz/DomainQ
+repositoryUrl https://github.com/RussBaz/DomainQ
