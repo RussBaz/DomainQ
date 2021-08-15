@@ -16,6 +16,10 @@ async {
         printfn $"Message: {i}"
 }
 ```
+Available modules and types:
+* [BoundedMb - basic building block](#boundedmb-module)
+* [WriteOnlyQueue / ReadOnlyQueue - special case wrappers](#writeonlyqueue--readonlyqueue-modules)
+* [SVar - single write synchronisation variable](#svar-module)
 ## BoundedMb module
 `BoundedMb` will block new messages once the capacity is reached. It will resume accepting new messages once it is no longer full.
 
@@ -107,4 +111,44 @@ let originalRId = ( roq :?> ReadOnlyQueueWrapper<string> ).WrappedId
 
 // Wrapper can be wrapped in another wrapper but why would you?
 // In that case its WrappedId property will show the inner wrapper id.
+```
+## SVar module
+When you need a single write variable to share a state between async workflows, then you can use `SVar`.
+```F#
+// SVar implements IDisposable
+use v = SVar.create ()
+
+// An example of common usage:
+Async.Parallel [
+    async {
+        do! Async.Sleep 1000
+        do! v |> SVar.fill 2
+    }
+    // Next async workflows would block till the variable is filled 
+    async {
+        let! r = v |> SVar.read
+        printfn $"Value: {r}"
+    }
+    // This workflow would not block on read
+    // because by that time the SVar is already set
+    async {
+        do! Async.Sleep 2000
+        let! r = v |> SVar.read
+        printfn $"Value: {r}"
+    }
+]
+
+// YOu specify the SVar type explicitly
+let v2 = SVar.create<string> ()
+// If ever need to check if the SVar is set, then you can use the following method
+let isFilled = v2 |> SVar.isFilled
+
+// Once the SVar is set, any further attempts to fill it will raise a Failure exception
+// If you do not want any exceptions, you can try the following
+async {
+    let! r = v2 |> SVar.tryFill "Hello World!"
+    match r with
+    | Ok () -> printfn "Success."
+    | Error () -> printfn "Failure. The SVar is already filled."
+}
 ```

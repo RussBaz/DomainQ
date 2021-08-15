@@ -7,7 +7,7 @@ NUGET
       FSharp.Core (>= 4.3.2)
       Microsoft.Bcl.AsyncInterfaces (>= 5.0) - restriction: || (&& (== net5.0) (< netstandard2.1)) (== netstandard2.0)
     FSharp.Core (5.0.2)
-    FsUnit (4.0.5)
+    FsUnit (4.0.6)
       FSharp.Core (>= 4.7.2)
       NETStandard.Library (>= 2.0.3)
       NUnit (>= 3.13.2 < 3.14)
