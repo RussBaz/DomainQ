@@ -1,6 +1,9 @@
 # DomainQ
-![.NET Core Build Status](https://github.com/russbaz/domainq/actions/workflows/github-actions.yml/badge.svg?branch=master)
+[![Build Status](https://img.shields.io/github/workflow/status/RussBaz/DomainQ/.NET%20Core)](https://github.com/russbaz/domainq/actions/workflows/github-actions.yml)
+[![Latest Published Nuget Version](https://img.shields.io/nuget/v/RussBaz.DomainQ)](https://www.nuget.org/packages/RussBaz.DomainQ/)
 
+*docs for version: v1.0.1*
+### Overview
 F# Bounded Mailbox and other types of queues and simple synchronisation primitives for Async workflows with a secret sauce.
 
 It can easily force asynchronous tasks to be processed in order as a simple async sequence of messages.
@@ -16,11 +19,29 @@ async {
         printfn $"Message: {i}"
 }
 ```
-Available modules and types:
-* [BoundedMb - basic building block](#boundedmb-module)
-* [WriteOnlyQueue / ReadOnlyQueue - special case wrappers](#writeonlyqueue--readonlyqueue-modules)
-* [SVar - single write synchronisation variable](#svar-module)
-## BoundedMb module
+### Fast Travel:
+* [Available modules and types](#available-modules-and-types)
+    * [BoundedMb - basic building block](#boundedmb-module)
+    * [WriteOnlyQueue / ReadOnlyQueue - special case wrappers](#writeonlyqueue--readonlyqueue-modules)
+    * [SVar - single write synchronisation variable](#svar-module)
+* [Changelog](#changelog)
+## Installation
+**Prerequisites**
+
+The package runs on .NET Core and uses F# 5.0.
+
+**Installation**
+
+With local `paket`
+```
+dotnet paket add RussBaz.DomainQ
+```
+With pure `dotnet`
+```
+dotnet add package RussBaz.DomainQ
+```
+## Available modules and types
+### BoundedMb module
 `BoundedMb` will block new messages once the capacity is reached. It will resume accepting new messages once it is no longer full.
 
 ```F#
@@ -72,12 +93,14 @@ async {
 |> Async.StartImmediate
 ```
 
-## WriteOnlyQueue / ReadOnlyQueue modules
+### WriteOnlyQueue / ReadOnlyQueue modules
 If you ever need to prevent the consumer from accessing the read or write side of your Bounded Mailbox, then you can use these modules to wrap it in a proxy object which only exposes the `IWriteOnlyQueue` or `IReadOnlyQueue` interfaces.
 
 In addition, Write Only Queue wrapper can create its own BoundedMb if you need to create a quick message consumer.
 
 ```F#
+open DomainQ.DataStructures
+
 let mb = BoundedMb.create<string> ( QueueSize 100 )
        
 let woq = WriteOnlyQueue.ofBoundedMb mb
@@ -112,9 +135,11 @@ let originalRId = ( roq :?> ReadOnlyQueueWrapper<string> ).WrappedId
 // Wrapper can be wrapped in another wrapper but why would you?
 // In that case its WrappedId property will show the inner wrapper id.
 ```
-## SVar module
+### SVar module
 When you need a single write variable to share a state between async workflows, then you can use `SVar`.
 ```F#
+open DomainQ.DataStructures
+
 // SVar implements IDisposable
 use v = SVar.create ()
 
@@ -152,3 +177,11 @@ async {
     | Error () -> printfn "Failure. The SVar is already filled."
 }
 ```
+## Changelog
+### 1.0.1 - 15.08.2021
+* Initial public release
+* CI/CD with GitHub Actions to Nuget
+* Available modules:
+    * BoundedMb
+    * WriteOnlyQueue / ReadOnlyQueue
+    * SVar

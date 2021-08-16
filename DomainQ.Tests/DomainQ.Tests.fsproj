@@ -9,6 +9,7 @@
     <Compile Include="BoundedMbTests.fs" />
     <Compile Include="IVarTests.fs" />
     <Compile Include="Program.fs" />
+    <Content Include="paket.references" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\DomainQ\DomainQ.fsproj" />
