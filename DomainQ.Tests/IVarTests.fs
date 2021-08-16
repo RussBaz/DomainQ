@@ -7,6 +7,11 @@ open FSharp.Control
 
 open DomainQ.DataStructures
 
+type SampleMutableRecord = {
+    mutable Value: string
+    Count: int
+}
+
 [<SetUp>]
 let Setup () =
     ()
@@ -90,3 +95,89 @@ let ``Check basic SVar usage`` () =
     let isFilled = v2 |> SVar.isFilled
     
     isFilled |> shouldEqual true
+    
+    // Anonymous records would work too
+    let v3 = SVar.create<{| Count: int |}> ()
+    
+    let isFilled = v3 |> SVar.isFilled
+    
+    isFilled |> shouldEqual false
+    
+    // Using ignoreFill instead
+    // If one tries to write to the variable once it is set
+    // ignoreFill will do nothing
+    Async.Parallel [
+        async {
+            let! r = v3 |> SVar.read
+            a <- r.Count
+        }
+        async {
+            do! v3 |> SVar.ignoreFill {| Count = 18 |}
+            // Subsequent calls to ignoreFIll result in nothing
+            // It will neither update the value, nor throw an exception
+            do! v3 |> SVar.ignoreFill {| Count = 7 |}
+            do! v3 |> SVar.ignoreFill {| Count = 42 |}
+        }
+        async {
+            let! r = v3 |> SVar.read
+            b <- r.Count
+        }
+    ]
+    |> Async.Ignore
+    |> Async.RunSynchronously
+    
+    a |> shouldEqual 18
+    b |> shouldEqual 18
+    
+    let isFilled = v3 |> SVar.isFilled
+    
+    isFilled |> shouldEqual true
+    
+[<Test>]
+let ``Check SVar with mutable data`` () =
+    // An incredibly dangerous test case
+    // SVar should never return mutable data
+    // Because such data can be updated by any async workflow at any time without notice
+    // Such behaviour is very dangerous for correctness of your code
+    // and of course it is not thread safe as is
+    let v = SVar.create<SampleMutableRecord> ()
+    
+    let mutable result = ""
+    
+    let isFilled = v |> SVar.isFilled
+    
+    isFilled |> shouldEqual false
+    
+    Async.Parallel [
+        async {
+            let! r = v |> SVar.read
+            result <- r.Value
+            r.Value <- "Option A"
+        }
+        async {
+            let data = {
+                Value = "Hello World"
+                Count = 1
+            }
+            do! v |> SVar.fill data
+        }
+        async {
+            let data = {
+                Value = "Strange"
+                Count = 42
+            }
+            let! r = v |> SVar.read
+            result <- r.Value
+            r.Value <- "Option B"
+            do! v |> SVar.ignoreFill data
+            let! r = v |> SVar.read
+            result <- r.Value
+        }
+    ]
+    |> Async.Ignore
+    |> Async.RunSynchronously
+    
+    let isFilled = v |> SVar.isFilled
+    
+    isFilled |> shouldEqual true
+    result |> shouldNotEqual "Hello World"

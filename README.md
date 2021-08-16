@@ -2,11 +2,15 @@
 [![Build Status](https://img.shields.io/github/workflow/status/RussBaz/DomainQ/.NET%20Core)](https://github.com/russbaz/domainq/actions/workflows/github-actions.yml)
 [![Latest Published Nuget Version](https://img.shields.io/nuget/v/RussBaz.DomainQ)](https://www.nuget.org/packages/RussBaz.DomainQ/)
 
-*docs for version: v1.0.1*
+*docs for version: v1.1.0*
 ### Overview
 F# Bounded Mailbox and other types of queues and simple synchronisation primitives for Async workflows with a secret sauce.
 
 It can easily force asynchronous tasks to be processed in order as a simple async sequence of messages.
+
+**WARNING! Never send over any data with mutable properties!**
+
+`RussBaz.DomainQ` types do not guarantee any thread safety if you choose to do so.
 ```F#
 // The Secret Sauce
 open DomainQ.DataStructures
@@ -15,11 +19,14 @@ open FSharp.Control
 let mb = BoundedMb.create ( QueueSize 100 )
 
 async {
+    // Returns an AsynqSeq from FSharp.Control.AsyncSeq
+    // https://github.com/fsprojects/FSharp.Control.AsyncSeq
     for i in BoundedMb.stream mb do
         printfn $"Message: {i}"
 }
 ```
 ### Fast Travel:
+* [Installation](#installation)
 * [Available modules and types](#available-modules-and-types)
     * [BoundedMb - basic building block](#boundedmb-module)
     * [WriteOnlyQueue / ReadOnlyQueue - special case wrappers](#writeonlyqueue--readonlyqueue-modules)
@@ -163,7 +170,7 @@ Async.Parallel [
     }
 ]
 
-// YOu specify the SVar type explicitly
+// You can specify the SVar type explicitly
 let v2 = SVar.create<string> ()
 // If ever need to check if the SVar is set, then you can use the following method
 let isFilled = v2 |> SVar.isFilled
@@ -176,8 +183,17 @@ async {
     | Ok () -> printfn "Success."
     | Error () -> printfn "Failure. The SVar is already filled."
 }
+// Alternatively, if you do not care about the result of filling the SVar
+// you can use ignoreFill function
+// It performs exactly like tryFill but discards the result
+async {
+    do! v2 |> SVar.ignoreFill "Hello World!"
+}
 ```
 ## Changelog
+### 1.1.0 - 16.08.2021
+* Quality of life improvements to SVar
+    * New function `ignoreFill` which automatically discards the result of `tryFill`
 ### 1.0.1 - 15.08.2021
 * Initial public release
 * CI/CD with GitHub Actions to Nuget

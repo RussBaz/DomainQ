@@ -236,6 +236,7 @@ module SVar =
         | Error _ -> failwith "IVar is already filled"
     }
     let tryFill ( m: 'T ) ( mb: IVar<'T> ) = mb.Fill m
+    let ignoreFill ( m: 'T ) ( mb: IVar<'T> ) = mb |> tryFill m |> Async.Ignore
     let read ( mb: IVar<'T> ) : Async<'T> = mb.Read ()
     let isFilled ( mb: IVar<_> ) : bool =
         async {
