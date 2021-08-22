@@ -4,9 +4,14 @@ open System
 open System.Collections.Generic
 open FSharp.Control
 
+[<Measure>] type ms
 type QueueSize = QueueSize of int
 
 type SVarResult = Result<unit, unit>
+
+type TimeoutOption =
+    | WithoutTimeout
+    | WithTimeoutOf of int<ms>
 
 type IDomainQueue =
     abstract member Id: Guid
@@ -16,10 +21,12 @@ type IDomainQueue =
 type IWriteOnlyQueue<'T> =
     inherit IDomainQueue
     abstract member Put: 'T -> Async<unit>
+    abstract member Put: int<ms> * 'T -> Async<unit>
     
 type IReadOnlyQueue<'T> =
     inherit IDomainQueue
     abstract member Take: unit -> Async<'T>
+    abstract member Take: int<ms> -> Async<'T>
     
 type ISubscribable<'T> =
     abstract member Subscribe: unit -> Guid * IReadOnlyQueue<'T>
@@ -28,7 +35,9 @@ type ISubscribable<'T> =
     
 type IVar<'T> =
     abstract member Fill: 'T -> Async<SVarResult>
+    abstract member Fill: int<ms> * 'T -> Async<SVarResult>
     abstract member Read: unit -> Async<'T>
+    abstract member Read: int<ms> -> Async<'T>
     abstract member Value: unit -> Async<'T option>
 
 type BoundedMbRequest<'T> =
@@ -108,10 +117,16 @@ type BoundedMb<'T> internal ( capacity: int ) =
     interface IWriteOnlyQueue<'T> with
         member _.Put ( a: 'T ) =
             agent.PostAndAsyncReply ( fun ch -> Put ( a, ch ) )
+            
+        member _.Put ( timeout: int<ms>, a: 'T ) =
+            let put = fun ch -> Put ( a, ch )
+            agent.PostAndAsyncReply ( put, int timeout )
 
     interface IReadOnlyQueue<'T> with
         member _.Take () =
             agent.PostAndAsyncReply Take
+        member this.Take ( timeout: int<ms> ) =
+            agent.PostAndAsyncReply ( Take, int timeout )
 
     interface IDisposable with
         member _.Dispose () = ( agent :> IDisposable ).Dispose ()
@@ -121,7 +136,8 @@ type WriteOnlyQueueWrapper<'T> internal ( ofQ: IWriteOnlyQueue<'T> ) =
     member _.WrappedId = ofQ.Id
     
     interface IWriteOnlyQueue<'T> with
-        member _.Put ( a: 'T ) = ofQ.Put a
+        member _.Put a = ofQ.Put a
+        member _.Put ( timeout, a ) = ofQ.Put ( timeout, a )
         member _.Id = queueId
         member _.Capacity = ofQ.Capacity
         member _.Count () = ofQ.Count ()
@@ -132,6 +148,7 @@ type ReadOnlyQueueWrapper<'T> internal ( ofQ: IReadOnlyQueue<'T> ) =
     
     interface IReadOnlyQueue<'T> with
         member _.Take () = ofQ.Take ()
+        member _.Take timeout = ofQ.Take timeout
         member _.Id = queueId
         member _.Capacity = ofQ.Capacity
         member _.Count () = ofQ.Count ()
@@ -139,11 +156,17 @@ type ReadOnlyQueueWrapper<'T> internal ( ofQ: IReadOnlyQueue<'T> ) =
 module BoundedMb =
     let create<'T> ( capacity: QueueSize ) =
         new BoundedMb<'T> ( QueueSize.value capacity )
-    let put ( m: 'T ) ( mb: IWriteOnlyQueue<'T> ) : Async<unit> = mb.Put m
-    let take ( mb: IReadOnlyQueue<'T> ) : Async<'T> = mb.Take ()
+    let put ( timoutOptions: TimeoutOption ) ( m: 'T ) ( mb: IWriteOnlyQueue<'T> ) : Async<unit> =
+        match timoutOptions with
+        | WithoutTimeout -> mb.Put m
+        | WithTimeoutOf t -> mb.Put ( t, m )
+    let take ( timoutOptions: TimeoutOption ) ( mb: IReadOnlyQueue<'T> ) : Async<'T> =
+        match timoutOptions with
+        | WithoutTimeout -> mb.Take ()
+        | WithTimeoutOf t -> mb.Take t
     let stream ( mb: IReadOnlyQueue<'T> ) = asyncSeq {
         let rec loop () = asyncSeq {
-            let! v = take mb
+            let! v = take WithoutTimeout mb
             yield v
             yield! loop ()
         }
@@ -218,8 +241,14 @@ type SVar<'T> internal () =
         member _.Fill ( a: 'T ) =
             agent.PostAndAsyncReply ( fun ch -> Fill ( a, ch ) )
 
+        member this.Fill ( timeout: int<ms>, a: 'T ) =
+            let fill = fun ch -> Fill ( a, ch )
+            agent.PostAndAsyncReply ( fill, int timeout )
+
         member _.Read () =
             agent.PostAndAsyncReply Read
+        member this.Read ( timeout: int<ms> ) =
+            agent.PostAndAsyncReply ( Read, int timeout )
             
         member _.Value () =
             agent.PostAndAsyncReply State
@@ -237,7 +266,21 @@ module SVar =
     }
     let tryFill ( m: 'T ) ( mb: IVar<'T> ) = mb.Fill m
     let ignoreFill ( m: 'T ) ( mb: IVar<'T> ) = mb |> tryFill m |> Async.Ignore
+    
+    let fillWithTimeout ( timeout: int<ms> ) ( m: 'T ) ( mb: IVar<'T> ) : Async<unit> = async {
+        let! r = mb.Fill ( timeout, m )
+        match r with
+        | Ok _ -> ()
+        | Error _ -> failwith "IVar is already filled"
+    }
+    let tryFillWithTimeout ( timeout: int<ms> ) ( m: 'T ) ( mb: IVar<'T> ) = mb.Fill ( timeout, m )
+    let ignoreFillWithTimeout ( timeout: int<ms> ) ( m: 'T ) ( mb: IVar<'T> ) =
+        mb
+        |> tryFillWithTimeout timeout m
+        |> Async.Ignore
+    
     let read ( mb: IVar<'T> ) : Async<'T> = mb.Read ()
+    let readWithTimeout ( timeout: int<ms> ) ( mb: IVar<'T> ) : Async<'T> = mb.Read timeout
     let isFilled ( mb: IVar<_> ) : bool =
         async {
             let! s = mb.Value ()

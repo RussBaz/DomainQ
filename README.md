@@ -2,7 +2,7 @@
 [![Build Status](https://img.shields.io/github/workflow/status/RussBaz/DomainQ/.NET%20Core)](https://github.com/russbaz/domainq/actions/workflows/github-actions.yml)
 [![Latest Published Nuget Version](https://img.shields.io/nuget/v/RussBaz.DomainQ)](https://www.nuget.org/packages/RussBaz.DomainQ/)
 
-*docs for version: v1.1.0*
+*docs for version: v2.0.0*
 ### Overview
 F# Bounded Mailbox and other types of queues and simple synchronisation primitives for Async workflows with a secret sauce.
 
@@ -191,6 +191,9 @@ async {
 }
 ```
 ## Changelog
+### 2.0.0 - xx.xx.2021
+* Breaking Changes - interfaces and signatures of existing functions were changed
+* Updated BoundedMb put/take functions to receive timeout options as a parameter
 ### 1.1.0 - 16.08.2021
 * Quality of life improvements to SVar
     * New function `ignoreFill` which automatically discards the result of `tryFill`

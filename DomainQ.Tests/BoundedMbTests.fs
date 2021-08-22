@@ -11,8 +11,8 @@ open DomainQ.DataStructures
 let Setup () =
     ()
 
-let putMsgIn mb msg = async { do! mb |> BoundedMb.put msg }
-let takeMsgFrom mb () = async { return! mb |> BoundedMb.take }
+let putMsgIn mb too msg = async { do! mb |> BoundedMb.put too msg }
+let takeMsgFrom mb too = async { return! mb |> BoundedMb.take too }
 let timeout ( ms: int ) = async {
     do! Async.Sleep ms
     return Some false
@@ -28,8 +28,8 @@ let ``Verifying Basic BoundedMb Behaviour`` () =
     }
     let expectedCapacity = 2
     let mb = BoundedMb.create ( QueueSize expectedCapacity )
-    let put = putMsgIn mb
-    let take = takeMsgFrom mb
+    let put = putMsgIn mb WithoutTimeout
+    let take () = takeMsgFrom mb WithoutTimeout
     
     // Trying to fill the queue till its full
     async {
@@ -85,8 +85,8 @@ let ``Verifying Basic BoundedMb Behaviour`` () =
 let ``Bounded Mb will stop accepting new messages when full`` () =
     let expectedCapacity = 2
     let mb = BoundedMb.create ( QueueSize expectedCapacity )
-    let put = putMsgIn mb
-    let take = takeMsgFrom mb
+    let put = putMsgIn mb WithoutTimeout
+    let take () = takeMsgFrom mb WithoutTimeout
     
     let checkIfFull () =
         async {
@@ -176,7 +176,7 @@ let ``Verifying Streaming Behaviour of BoundedMb`` () =
     let performTheTests () =
         // BoundedMb is IDisposable
         use mb = BoundedMb.create ( QueueSize expectedCapacity )
-        let put = putMsgIn mb
+        let put = putMsgIn mb WithoutTimeout
     
         // Testing streaming with AsyncSeq
         async {
@@ -249,8 +249,8 @@ let ``Bounded Mailbox queue can be cast as IWriteOnly and IReadOnly queue`` () =
     
     idw |> shouldEqual idr
     
-    let put = putMsgIn woq
-    let take = takeMsgFrom roq
+    let put = putMsgIn woq WithoutTimeout
+    let take () = takeMsgFrom roq WithoutTimeout
     
     let expected = "Hello World!"
     
@@ -284,11 +284,11 @@ let ``Check Read/Write Only Wrapper for the BoundedMb`` () =
     let woqNested = WriteOnlyQueue.ofBoundedMb woq
     let roqNested = ReadOnlyQueue.ofBoundedMb roq
     
-    let put = putMsgIn woq
-    let take = takeMsgFrom roq
+    let put = putMsgIn woq WithoutTimeout
+    let take () = takeMsgFrom roq WithoutTimeout
     
-    let putNested = putMsgIn woqNested
-    let takeNested = takeMsgFrom roqNested
+    let putNested = putMsgIn woqNested WithoutTimeout
+    let takeNested () = takeMsgFrom roqNested WithoutTimeout
     
     let mid = mb |> BoundedMb.id
     
@@ -395,7 +395,7 @@ let ``Check Write Only Wrapper 'create' method with a handler`` () =
         result <- result @ [ i ]
     } )
     
-    let put = putMsgIn woq
+    let put = putMsgIn woq WithoutTimeout
     
     Async.Choice [
         async {
