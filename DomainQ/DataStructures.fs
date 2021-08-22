@@ -258,29 +258,22 @@ type SVar<'T> internal () =
     
 module SVar =
     let create<'T> () = new SVar<'T> ()
-    let fill ( m: 'T ) ( mb: IVar<'T> ) : Async<unit> = async {
-        let! r = mb.Fill m
+    let tryFill ( timeoutOptions: TimeoutOption ) ( m: 'T ) ( mb: IVar<'T> ) =
+        match timeoutOptions with
+            | WithoutTimeout -> mb.Fill m
+            | WithTimeoutOf t -> mb.Fill ( t, m )
+    let fill ( timeoutOptions: TimeoutOption ) ( m: 'T ) ( mb: IVar<'T> ) : Async<unit> = async {
+        let! r = tryFill timeoutOptions m mb
         match r with
         | Ok _ -> ()
         | Error _ -> failwith "IVar is already filled"
     }
-    let tryFill ( m: 'T ) ( mb: IVar<'T> ) = mb.Fill m
-    let ignoreFill ( m: 'T ) ( mb: IVar<'T> ) = mb |> tryFill m |> Async.Ignore
-    
-    let fillWithTimeout ( timeout: int<ms> ) ( m: 'T ) ( mb: IVar<'T> ) : Async<unit> = async {
-        let! r = mb.Fill ( timeout, m )
-        match r with
-        | Ok _ -> ()
-        | Error _ -> failwith "IVar is already filled"
-    }
-    let tryFillWithTimeout ( timeout: int<ms> ) ( m: 'T ) ( mb: IVar<'T> ) = mb.Fill ( timeout, m )
-    let ignoreFillWithTimeout ( timeout: int<ms> ) ( m: 'T ) ( mb: IVar<'T> ) =
-        mb
-        |> tryFillWithTimeout timeout m
-        |> Async.Ignore
-    
-    let read ( mb: IVar<'T> ) : Async<'T> = mb.Read ()
-    let readWithTimeout ( timeout: int<ms> ) ( mb: IVar<'T> ) : Async<'T> = mb.Read timeout
+    let ignoreFill ( timeoutOptions: TimeoutOption ) ( m: 'T ) ( mb: IVar<'T> ) =
+        mb |> tryFill timeoutOptions m |> Async.Ignore   
+    let read ( timoutOptions: TimeoutOption ) ( mb: IVar<'T> ) : Async<'T> =
+        match timoutOptions with
+        | WithoutTimeout -> mb.Read ()
+        | WithTimeoutOf t -> mb.Read t
     let isFilled ( mb: IVar<_> ) : bool =
         async {
             let! s = mb.Value ()

@@ -30,16 +30,16 @@ let ``Check basic SVar usage`` () =
     
     Async.Parallel [
         async {
-            do! v |> SVar.fill 2
+            do! v |> SVar.fill WithoutTimeout 2
         }
         async {
-            let! r = v |> SVar.read
+            let! r = v |> SVar.read WithoutTimeout
             a <- r
         }
         async {
-            let! r = v |> SVar.read
+            let! r = v |> SVar.read WithoutTimeout
             b <- r
-            let! r = v |> SVar.tryFill 4
+            let! r = v |> SVar.tryFill WithoutTimeout 4
             match r with
             | Ok () -> Assert.Fail "Already filled SVar cannot be refilled"
             | Error () -> Assert.Pass ()
@@ -57,7 +57,7 @@ let ``Check basic SVar usage`` () =
     
     fun _ ->
         async {
-            do! v |> SVar.fill 8
+            do! v |> SVar.fill WithoutTimeout 8
         }
         |> Async.RunSynchronously
     |> shouldFail
@@ -72,17 +72,17 @@ let ``Check basic SVar usage`` () =
     // Using tryFill instead of fill
     Async.Parallel [
         async {
-            let! r = v2 |> SVar.read
+            let! r = v2 |> SVar.read WithoutTimeout
             a <- r
         }
         async {
-            let! r = v2 |> SVar.tryFill 4
+            let! r = v2 |> SVar.tryFill WithoutTimeout 4
             match r with
             | Ok () -> Assert.Pass ()
             | Error () -> Assert.Fail "The SVar should not be filled at this point yet"
         }
         async {
-            let! r = v2 |> SVar.read
+            let! r = v2 |> SVar.read WithoutTimeout
             b <- r
         }
     ]
@@ -108,18 +108,18 @@ let ``Check basic SVar usage`` () =
     // ignoreFill will do nothing
     Async.Parallel [
         async {
-            let! r = v3 |> SVar.read
+            let! r = v3 |> SVar.read WithoutTimeout
             a <- r.Count
         }
         async {
-            do! v3 |> SVar.ignoreFill {| Count = 18 |}
+            do! v3 |> SVar.ignoreFill WithoutTimeout {| Count = 18 |}
             // Subsequent calls to ignoreFIll result in nothing
             // It will neither update the value, nor throw an exception
-            do! v3 |> SVar.ignoreFill {| Count = 7 |}
-            do! v3 |> SVar.ignoreFill {| Count = 42 |}
+            do! v3 |> SVar.ignoreFill WithoutTimeout {| Count = 7 |}
+            do! v3 |> SVar.ignoreFill WithoutTimeout {| Count = 42 |}
         }
         async {
-            let! r = v3 |> SVar.read
+            let! r = v3 |> SVar.read WithoutTimeout
             b <- r.Count
         }
     ]
@@ -150,7 +150,7 @@ let ``Check SVar with mutable data`` () =
     
     Async.Parallel [
         async {
-            let! r = v |> SVar.read
+            let! r = v |> SVar.read WithoutTimeout
             result <- r.Value
             r.Value <- "Option A"
         }
@@ -159,18 +159,18 @@ let ``Check SVar with mutable data`` () =
                 Value = "Hello World"
                 Count = 1
             }
-            do! v |> SVar.fill data
+            do! v |> SVar.fill WithoutTimeout data
         }
         async {
             let data = {
                 Value = "Strange"
                 Count = 42
             }
-            let! r = v |> SVar.read
+            let! r = v |> SVar.read WithoutTimeout
             result <- r.Value
             r.Value <- "Option B"
-            do! v |> SVar.ignoreFill data
-            let! r = v |> SVar.read
+            do! v |> SVar.ignoreFill WithoutTimeout data
+            let! r = v |> SVar.read WithoutTimeout
             result <- r.Value
         }
     ]
