@@ -6,6 +6,10 @@ open FSharp.Control
 open NodaTime
 
 [<Measure>] type ms
+exception PutTimeout
+exception TakeTimeout
+exception FillTimeout
+exception ReadTimeout
 type QueueSize = QueueSize of int
 
 type SVarResult = Result<unit, unit>
@@ -36,7 +40,6 @@ type ISubscribable<'T> =
     
 type IVar<'T> =
     abstract member Fill: 'T -> Async<SVarResult>
-    abstract member Fill: int<ms> * 'T -> Async<SVarResult>
     abstract member Read: unit -> Async<'T>
     abstract member Read: int<ms> -> Async<'T>
     abstract member Value: unit -> Async<'T option>
@@ -155,7 +158,6 @@ type BoundedMb<'T> internal ( capacity: int ) =
             | Some v -> return v
             | None -> return failwith "Timeout!"
         }
-            
         
     interface IWriteOnlyQueue<'T> with
         member _.Put ( a: 'T ) = async {
@@ -171,7 +173,6 @@ type BoundedMb<'T> internal ( capacity: int ) =
             | Some () -> ()
             | None -> failwith "Timeout!"
         }
-            
 
     interface IReadOnlyQueue<'T> with
         member _.Take () = async {
@@ -299,16 +300,30 @@ type SVar<'T> internal () =
     interface IVar<'T> with
         member _.Fill ( a: 'T ) =
             agent.PostAndAsyncReply ( fun ch -> Fill ( a, ch ) )
-
-        member this.Fill ( timeout: int<ms>, a: 'T ) =
-            let fill = fun ch -> Fill ( a, ch )
-            agent.PostAndAsyncReply ( fill, int timeout )
-
         member _.Read () =
             agent.PostAndAsyncReply Read
-        member this.Read ( timeout: int<ms> ) =
-            agent.PostAndAsyncReply ( Read, int timeout )
-            
+        member this.Read ( timeout: int<ms> ) = async {
+            let mutable result = None
+            let! r =
+                Async.Choice [
+                    async {
+                        do! Async.Sleep ( int timeout )
+                        return Some false
+                    }
+                    async {
+                        let! r = agent.PostAndAsyncReply Read
+                        result <- Some r
+                        return Some true
+                    }
+                ]
+                
+            match r with
+            | Some b when b ->
+                match result with
+                | Some v -> return v
+                | None -> return failwith "Result was not returned"
+            | _ -> return failwith "Timeout occured"
+        }
         member _.Value () =
             agent.PostAndAsyncReply State
 
@@ -317,18 +332,14 @@ type SVar<'T> internal () =
     
 module SVar =
     let create<'T> () = new SVar<'T> ()
-    let tryFill ( timeoutOptions: TimeoutOption ) ( m: 'T ) ( mb: IVar<'T> ) =
-        match timeoutOptions with
-            | WithoutTimeout -> mb.Fill m
-            | WithTimeoutOf t -> mb.Fill ( t, m )
-    let fill ( timeoutOptions: TimeoutOption ) ( m: 'T ) ( mb: IVar<'T> ) : Async<unit> = async {
-        let! r = tryFill timeoutOptions m mb
+    let tryFill ( m: 'T ) ( mb: IVar<'T> ) = mb.Fill m
+    let fill ( m: 'T ) ( mb: IVar<'T> ) : Async<unit> = async {
+        let! r = tryFill m mb
         match r with
         | Ok _ -> ()
         | Error _ -> failwith "IVar is already filled"
     }
-    let ignoreFill ( timeoutOptions: TimeoutOption ) ( m: 'T ) ( mb: IVar<'T> ) =
-        mb |> tryFill timeoutOptions m |> Async.Ignore   
+    let ignoreFill ( m: 'T ) ( mb: IVar<'T> ) = mb |> tryFill m |> Async.Ignore   
     let read ( timoutOptions: TimeoutOption ) ( mb: IVar<'T> ) : Async<'T> =
         match timoutOptions with
         | WithoutTimeout -> mb.Read ()

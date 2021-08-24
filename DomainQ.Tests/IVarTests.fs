@@ -12,6 +12,11 @@ type SampleMutableRecord = {
     Count: int
 }
 
+let timeout ( ms: int ) = async {
+    do! Async.Sleep ms
+    return Some false
+}
+
 [<SetUp>]
 let Setup () =
     ()
@@ -30,7 +35,7 @@ let ``Check basic SVar usage`` () =
     
     Async.Parallel [
         async {
-            do! v |> SVar.fill WithoutTimeout 2
+            do! v |> SVar.fill 2
         }
         async {
             let! r = v |> SVar.read WithoutTimeout
@@ -39,7 +44,7 @@ let ``Check basic SVar usage`` () =
         async {
             let! r = v |> SVar.read WithoutTimeout
             b <- r
-            let! r = v |> SVar.tryFill WithoutTimeout 4
+            let! r = v |> SVar.tryFill 4
             match r with
             | Ok () -> Assert.Fail "Already filled SVar cannot be refilled"
             | Error () -> Assert.Pass ()
@@ -57,7 +62,7 @@ let ``Check basic SVar usage`` () =
     
     fun _ ->
         async {
-            do! v |> SVar.fill WithoutTimeout 8
+            do! v |> SVar.fill 8
         }
         |> Async.RunSynchronously
     |> shouldFail
@@ -76,7 +81,7 @@ let ``Check basic SVar usage`` () =
             a <- r
         }
         async {
-            let! r = v2 |> SVar.tryFill WithoutTimeout 4
+            let! r = v2 |> SVar.tryFill 4
             match r with
             | Ok () -> Assert.Pass ()
             | Error () -> Assert.Fail "The SVar should not be filled at this point yet"
@@ -112,11 +117,11 @@ let ``Check basic SVar usage`` () =
             a <- r.Count
         }
         async {
-            do! v3 |> SVar.ignoreFill WithoutTimeout {| Count = 18 |}
+            do! v3 |> SVar.ignoreFill {| Count = 18 |}
             // Subsequent calls to ignoreFIll result in nothing
             // It will neither update the value, nor throw an exception
-            do! v3 |> SVar.ignoreFill WithoutTimeout {| Count = 7 |}
-            do! v3 |> SVar.ignoreFill WithoutTimeout {| Count = 42 |}
+            do! v3 |> SVar.ignoreFill {| Count = 7 |}
+            do! v3 |> SVar.ignoreFill {| Count = 42 |}
         }
         async {
             let! r = v3 |> SVar.read WithoutTimeout
@@ -132,6 +137,109 @@ let ``Check basic SVar usage`` () =
     let isFilled = v3 |> SVar.isFilled
     
     isFilled |> shouldEqual true
+    
+[<Test>]
+let ``Checking different timeout behaviours for SVar functions`` () =
+    let reduce ( data: Async<bool option []> ) = async {
+        let! data = data
+        for i, v in data |> Seq.indexed do
+            match v with
+            | Some b when b -> ()
+            | _ -> failwith $"Something went wrong at pos: {i}"
+        return Some true
+    }
+    
+    let v = SVar.create<int> ()
+        
+    Async.Choice [
+        timeout 1000
+        async {
+            let! _ = v |> SVar.read WithoutTimeout
+            return Some true
+        }
+    ]
+    |> Async.RunSynchronously
+    |> function
+        | Some b when b -> Assert.Fail "Timeout did not occur 1"
+        | _ -> ()
+        
+    v |> SVar.isFilled |> shouldEqual false
+    
+    Async.Choice [
+        timeout 60
+        async {
+            try
+                let! _ = v |> SVar.read ( WithTimeoutOf 50<ms> )
+                Assert.Fail "Timeout did not occur 4"
+            with
+            | _ -> ()
+            return Some true
+        }
+    ]
+    |> Async.RunSynchronously
+    |> function
+        | Some b when b -> ()
+        | _ -> Assert.Fail "Timeout did not occur on time 5"
+        
+    v |> SVar.isFilled |> shouldEqual false
+    
+    Async.Choice [
+        timeout 10
+        async {
+            do! v |> SVar.fill 10
+            try
+                do! v |> SVar.fill 11
+            with
+            | _ -> ()
+            return Some true
+        }
+    ]
+    |> Async.RunSynchronously
+    |> function
+        | Some b when b -> ()
+        | _ -> Assert.Fail "Timeout occured 6"
+        
+    v |> SVar.isFilled |> shouldEqual true
+    
+    let v2 = SVar.create<int> ()
+    
+    v2 |> SVar.isFilled |> shouldEqual false
+    
+    Async.Choice [
+        timeout 520
+        Async.Parallel [
+            async {
+                let! _ = v2 |> SVar.read WithoutTimeout
+                return Some true
+            }
+            async {
+                try
+                    let! _ = v2 |> SVar.read ( WithTimeoutOf 500<ms> )
+                    return Some false
+                with
+                | _ -> return Some true
+            }
+            async {
+                try
+                    let! _ = v2 |> SVar.read ( WithTimeoutOf 1000<ms> )
+                    return Some true
+                with
+                | _ -> return Some false
+            }
+            async {
+                do! Async.Sleep 500
+                do! v2 |> SVar.fill 1
+                return Some true
+            }
+        ]
+        |> reduce
+    ]
+    |> Async.RunSynchronously
+    |> function
+        | Some b when b -> ()
+        | _ -> Assert.Fail "SVar filling and reading was not processed fast enough"
+        
+    v2 |> SVar.isFilled |> shouldEqual true
     
 [<Test>]
 let ``Check SVar with mutable data`` () =
@@ -159,7 +267,7 @@ let ``Check SVar with mutable data`` () =
                 Value = "Hello World"
                 Count = 1
             }
-            do! v |> SVar.fill WithoutTimeout data
+            do! v |> SVar.fill data
         }
         async {
             let data = {
@@ -169,7 +277,7 @@ let ``Check SVar with mutable data`` () =
             let! r = v |> SVar.read WithoutTimeout
             result <- r.Value
             r.Value <- "Option B"
-            do! v |> SVar.ignoreFill WithoutTimeout data
+            do! v |> SVar.ignoreFill data
             let! r = v |> SVar.read WithoutTimeout
             result <- r.Value
         }

@@ -196,7 +196,7 @@ async {
 ### 2.0.0 - xx.xx.2021
 * Breaking Changes - interfaces and signatures of existing functions were changed
 * Updated BoundedMb put/take functions to receive timeout options as a parameter
-* Updated SVar fill/tryFill/ignoreFill/read functions to receive timeout options as a parameter
+* Updated SVar read function to receive timeout options as a parameter
 * Major Bug fixed and tests adjusted - queue count was not properly tracked
 ### 1.1.0 - 16.08.2021
 * Quality of life improvements to SVar
