@@ -3,6 +3,7 @@ module DomainQ.DataStructures
 open System
 open System.Collections.Generic
 open FSharp.Control
+open NodaTime
 
 [<Measure>] type ms
 type QueueSize = QueueSize of int
@@ -41,12 +42,12 @@ type IVar<'T> =
     abstract member Value: unit -> Async<'T option>
 
 type BoundedMbRequest<'T> =
-    | Put of 'T * AsyncReplyChannel<unit>
-    | Take of AsyncReplyChannel<'T>
-    | Count of AsyncReplyChannel<int>
+    | Put of 'T * AsyncReplyChannel<unit option>
+    | Take of AsyncReplyChannel<'T option>
+    | Count of AsyncReplyChannel<int option>
     
 type SVarRequest<'T> =
-    | Fill of 'T * AsyncReplyChannel<Result<unit, unit>>
+    | Fill of 'T * AsyncReplyChannel<SVarResult>
     | Read of AsyncReplyChannel<'T>
     | State of AsyncReplyChannel<'T option>
 
@@ -60,47 +61,60 @@ type BoundedMb<'T> internal ( capacity: int ) =
     let queueId = Guid.NewGuid ()
     let agent = MailboxProcessor.Start <| fun inbox ->
         let queue = Queue<_> ()
-        let isWithinMaxCapacity = queue.Count < capacity
+        let isWithinMaxCapacity () = queue.Count < capacity
         
-        let receive ( a: 'T ) ( response: AsyncReplyChannel<unit> ) = async {
+        let receive ( a: 'T ) ( response: AsyncReplyChannel<unit option> ) = async {
             queue.Enqueue a
-            response.Reply ()
+            response.Reply ( Some () )
         }
         
-        let send ( response: AsyncReplyChannel<'T> ) = async {
+        let send ( response: AsyncReplyChannel<'T option> ) = async {
             let a = queue.Dequeue ()
-            response.Reply a
+            response.Reply ( Some a )
         }
         
-        let count ( response: AsyncReplyChannel<int> ) = async {
-            response.Reply queue.Count
+        let count ( response: AsyncReplyChannel<int option> ) = async {
+            response.Reply ( Some queue.Count )
+        }
+        
+        let skip m = async {
+            match m with
+            | Put ( _, r ) -> r.Reply None
+            | Take r -> r.Reply None
+            | Count r -> r.Reply None
         }
         
         let trySend () =
+            let instant = SystemClock.Instance.GetCurrentInstant ()
             inbox.Scan <| function
-                | Take m -> send m |> Some
-                | Count c -> count c |> Some
+                | Some i, r when i > instant -> skip r |> Some
+                | _, Take m -> send m |> Some
+                | _, Count c -> count c |> Some
                 | _ -> None
         
         let tryReceive () =
+            let instant = SystemClock.Instance.GetCurrentInstant ()
             inbox.Scan <| function
-                | Put ( m, r ) -> receive m r |> Some
-                | Count c -> count c |> Some
+                | Some i, r when i > instant -> skip r |> Some
+                | _, Put ( m, r ) -> receive m r |> Some
+                | _, Count c -> count c |> Some
                 | _ -> None
             
         let trySendOrReceive () = async {
+            let instant = SystemClock.Instance.GetCurrentInstant ()
             let! m = inbox.Receive ()
             
             match m with
-            | Take m -> return! send m
-            | Put ( m, r ) -> return! receive m r
-            | Count c -> return! count c
+            | Some i, r when i > instant -> return! skip r
+            | _, Take m -> return! send m
+            | _, Put ( m, r ) -> return! receive m r
+            | _, Count c -> return! count c
         }
             
         let rec loop () = async {
             match queue.Count with
             | 0 -> do! tryReceive ()
-            | _ when isWithinMaxCapacity -> do! trySendOrReceive ()
+            | _ when isWithinMaxCapacity () -> do! trySendOrReceive ()
             | _ -> do! trySend ()
             
             return! loop ()
@@ -108,25 +122,70 @@ type BoundedMb<'T> internal ( capacity: int ) =
         
         loop ()
         
+    
+    let put ( timeout: int<ms> option ) =
+        match timeout with
+        | Some timeout ->
+            let timeout = int64 timeout
+            let c = SystemClock.Instance.GetCurrentInstant ()
+            let d = Duration.FromMilliseconds timeout
+            let i = c + d
+            let put a = fun ch -> Some i, Put ( a, ch )
+            put
+        | None ->
+            let put a = fun ch -> None, Put ( a, ch )
+            put
+            
+    let take ( timeout: int<ms> option ) =
+        match timeout with
+        | Some timeout ->
+            let timeout = int64 timeout
+            let c = SystemClock.Instance.GetCurrentInstant ()
+            let d = Duration.FromMilliseconds timeout
+            let i = c + d
+            fun ch -> Some i, Take ch
+        | None ->
+            fun ch -> None, Take ch
+        
     interface IDomainQueue with
         member _.Id = queueId
         member _.Capacity = capacity
-        member this.Count () =
-            agent.PostAndAsyncReply Count
+        member this.Count () = async {
+            match! agent.PostAndAsyncReply ( fun ch -> None, Count ch ) with
+            | Some v -> return v
+            | None -> return failwith "Timeout!"
+        }
+            
         
     interface IWriteOnlyQueue<'T> with
-        member _.Put ( a: 'T ) =
-            agent.PostAndAsyncReply ( fun ch -> Put ( a, ch ) )
+        member _.Put ( a: 'T ) = async {
+            let put = put None a
+            match! agent.PostAndAsyncReply put with
+            | Some () -> return ()
+            | None -> return failwith "Timeout!"
+        }
             
-        member _.Put ( timeout: int<ms>, a: 'T ) =
-            let put = fun ch -> Put ( a, ch )
-            agent.PostAndAsyncReply ( put, int timeout )
+        member _.Put ( timeout: int<ms>, a: 'T ) = async {
+            let put = put ( Some timeout ) a
+            match! agent.PostAndAsyncReply put with
+            | Some () -> ()
+            | None -> failwith "Timeout!"
+        }
+            
 
     interface IReadOnlyQueue<'T> with
-        member _.Take () =
-            agent.PostAndAsyncReply Take
-        member this.Take ( timeout: int<ms> ) =
-            agent.PostAndAsyncReply ( Take, int timeout )
+        member _.Take () = async {
+            let take = take None
+            match! agent.PostAndAsyncReply take with
+            | Some v -> return v
+            | None -> return failwith "Timeout!"
+        }
+        member this.Take ( timeout: int<ms> ) = async {
+            let take = take ( Some timeout )
+            match! agent.PostAndAsyncReply ( take, int timeout + 10 ) with
+            | Some v -> return v
+            | None -> return failwith "Timeout!"
+        }
 
     interface IDisposable with
         member _.Dispose () = ( agent :> IDisposable ).Dispose ()

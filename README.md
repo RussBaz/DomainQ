@@ -3,6 +3,8 @@
 [![Latest Published Nuget Version](https://img.shields.io/nuget/v/RussBaz.DomainQ)](https://www.nuget.org/packages/RussBaz.DomainQ/)
 
 *docs for version: v2.0.0*
+
+**PLEASE DO NOT USE version 1.x.x as they contain a breaking bug**
 ### Overview
 F# Bounded Mailbox and other types of queues and simple synchronisation primitives for Async workflows with a secret sauce.
 
@@ -195,6 +197,7 @@ async {
 * Breaking Changes - interfaces and signatures of existing functions were changed
 * Updated BoundedMb put/take functions to receive timeout options as a parameter
 * Updated SVar fill/tryFill/ignoreFill/read functions to receive timeout options as a parameter
+* Major Bug fixed and tests adjusted - queue count was not properly tracked
 ### 1.1.0 - 16.08.2021
 * Quality of life improvements to SVar
     * New function `ignoreFill` which automatically discards the result of `tryFill`

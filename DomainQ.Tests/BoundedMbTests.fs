@@ -88,6 +88,15 @@ let ``Bounded Mb will stop accepting new messages when full`` () =
     let put = putMsgIn mb WithoutTimeout
     let take () = takeMsgFrom mb WithoutTimeout
     
+    let reduce ( data: Async<bool option []> ) = async {
+        let! data = data
+        for i in data do
+            match i with
+            | Some b when b -> ()
+            | _ -> failwith "Something went wrong"
+        return Some true
+    }
+    
     let checkIfFull () =
         async {
             let! count = mb |> BoundedMb.count
@@ -117,18 +126,19 @@ let ``Bounded Mb will stop accepting new messages when full`` () =
         let! _ = take ()
         return Some true
     }
-    
-    let r =
-        Async.Choice [
-            timeout 100
-            fill
-            fill
-        ]
-        |> Async.RunSynchronously
         
-    match r with
-    | Some b when b -> Assert.Pass ()
-    | _ -> Assert.Fail "Timeout occured before the messages were put in the queue"
+    Async.Choice [
+        timeout 100
+        async {
+            let! _ = fill
+            let! _ = fill
+            return ( Some true )
+        }
+    ]
+    |> Async.RunSynchronously
+    |> function
+        | Some b when b -> ()
+        | _ -> Assert.Fail "Timeout occured before the messages were put in the queue"
     
     checkIfFull ()
     
@@ -151,12 +161,15 @@ let ``Bounded Mb will stop accepting new messages when full`` () =
     let r =
         Async.Choice [
             timeout 100
-            fill
-            retrieve
-            retrieve
-            fill
-            retrieve
-            retrieve
+            Async.Parallel [
+                fill
+                retrieve
+                retrieve
+                fill
+                retrieve
+                retrieve
+            ]
+            |> reduce
         ]
         |> Async.RunSynchronously
         
@@ -271,7 +284,76 @@ let ``Bounded Mailbox queue can be cast as IWriteOnly and IReadOnly queue`` () =
     let idr = mbr |> BoundedMb.id
     
     idw |> shouldEqual idr
-    ()
+    
+[<Test>]
+let ``Verify timeout behaviour for the BoundedMb methods`` () =
+    let mb = BoundedMb.create<int> ( QueueSize 2 )
+    let put = putMsgIn mb
+    let take = takeMsgFrom mb
+    
+    let expected = [ 2; 1 ]
+    let mutable result = []
+        
+    Async.Choice [
+        timeout 100
+        async {
+            do! put WithoutTimeout 1
+            do! put WithoutTimeout 2
+            try
+                do! put ( WithTimeoutOf 10<ms> ) 3
+                do! put ( WithTimeoutOf 1<ms> ) 4
+                do! put ( WithTimeoutOf 1<ms> ) 5
+                do! put ( WithTimeoutOf 1<ms> ) 6
+            with
+            | _ -> ()
+            return Some true
+        }
+    ]
+    |> Async.RunSynchronously
+    |> function
+        | Some b when b -> ()
+        | _ -> Assert.Fail "The put operation did not timeout fast enough"
+    
+    Async.Choice [
+        async {
+            for i in BoundedMb.stream mb do
+                result <- i :: result
+            return Some true
+        }
+        timeout 2000
+    ]
+    |> Async.Ignore
+    |> Async.RunSynchronously
+    
+    result |> shouldEqual expected
+    
+    Async.Choice [
+        timeout 1000
+        async {
+            let! _ = take WithoutTimeout
+            return Some true
+        }
+    ]
+    |> Async.RunSynchronously
+    |> function
+        | Some b when b -> Assert.Fail "The Take operation did not block on empty queue"
+        | _ -> ()
+        
+    Async.Choice [
+        timeout 501
+        async {
+            try
+                let! _ = take ( WithTimeoutOf 500<ms> )
+                Assert.Fail "Timeout was not raised"
+            with
+            | _ -> ()
+            return Some true
+        }
+    ]
+    |> Async.RunSynchronously
+    |> function
+        | Some b when b -> ()
+        | _ -> Assert.Fail "Timeout was not raised fast enough"
     
 [<Test>]
 let ``Check Read/Write Only Wrapper for the BoundedMb`` () =

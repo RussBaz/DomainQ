@@ -8,5 +8,6 @@ nuget FSharp.Core ~> 5
 
 nuget FsUnit
 nuget Microsoft.NET.Test.Sdk
+nuget NodaTime
 nuget NUnit
 nuget NUnit3TestAdapter
