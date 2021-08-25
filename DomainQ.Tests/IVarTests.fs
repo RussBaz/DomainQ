@@ -206,7 +206,7 @@ let ``Checking different timeout behaviours for SVar functions`` () =
     v2 |> SVar.isFilled |> shouldEqual false
     
     Async.Choice [
-        timeout 520
+        timeout 600
         Async.Parallel [
             async {
                 let! _ = v2 |> SVar.read WithoutTimeout
