@@ -480,6 +480,7 @@ let ``Check Write Only Wrapper 'create' method with a handler`` () =
     let put = putMsgIn woq WithoutTimeout
     
     Async.Choice [
+        timeout 200
         async {
             for i in expected do
                 do! put i
@@ -487,7 +488,6 @@ let ``Check Write Only Wrapper 'create' method with a handler`` () =
                 do! Async.Sleep 10
             return Some true
         }
-        timeout 100
     ]
     |> Async.RunSynchronously
     |> function
