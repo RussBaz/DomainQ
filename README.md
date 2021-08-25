@@ -3,12 +3,12 @@
 [![Latest Published Nuget Version](https://img.shields.io/nuget/v/RussBaz.DomainQ)](https://www.nuget.org/packages/RussBaz.DomainQ/)
 
 *docs for version: v2.0.0*
-
-**PLEASE DO NOT USE version 1.x.x as they contain a breaking bug**
 ### Overview
 F# Bounded Mailbox and other types of queues and simple synchronisation primitives for Async workflows with a secret sauce.
 
-It can easily force asynchronous tasks to be processed in order as a simple async sequence of messages.
+It can easily force asynchronous tasks to be processed in the same order as the message arrive in. It returns a simple async sequence of ordered messages.
+
+The preferred use case is multiple writers and a single reader.
 
 **WARNING! Never send over any data with mutable properties!**
 
@@ -20,11 +20,19 @@ open FSharp.Control
 
 let mb = BoundedMb.create ( QueueSize 100 )
 
+// Reader
 async {
     // Returns an AsynqSeq from FSharp.Control.AsyncSeq
     // https://github.com/fsprojects/FSharp.Control.AsyncSeq
     for i in BoundedMb.stream mb do
         printfn $"Message: {i}"
+}
+
+// Writer (will block when the queue is full)
+let put = BoundedMb.put WithoutTimeout
+
+async {
+    do! mb |> put "Hello World!"
 }
 ```
 ### Fast Travel:
@@ -232,11 +240,11 @@ async {
 }
 ```
 ## Changelog
-### 2.0.0 - xx.xx.2021
+### 2.0.0 - 25.08.2021
 * Breaking Changes - interfaces and signatures of existing functions were changed
 * Updated BoundedMb put/take functions to receive timeout options as a parameter
 * Updated SVar read function to receive timeout options as a parameter
-* Major Bug fixed and tests adjusted - queue count was not properly tracked
+* Major Bug fixed and tests adjusted - queue capacityt was not properly tracked
 ### 1.1.0 - 16.08.2021
 * Quality of life improvements to SVar
     * New function `ignoreFill` which automatically discards the result of `tryFill`
