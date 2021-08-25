@@ -63,15 +63,43 @@ let mb = BoundedMb.create ( QueueSize 100 )
 let bm = BoundedMb.create<int> ( QueueSize expectedCapacity )
 
 // You can send any data of the same type to the BoundedMb
+// WithoutTimeout option will block the writer
+// till the queue has enough spare acapcity to accept a new message
 async {
-    do! mb |> BoundedMb.put "Hello World!"
+    do! mb |> BoundedMb.put WithoutTimeout "Hello World!"
 }
 
 // This snippet shows how to receive a message
+// WithoutTimeout option will block the reader
+// till there is a new message available in the queue
 async {
-    let! r = mb |> BoundedMb.take
+    let! r = mb |> BoundedMb.take WithoutTimeout
     printfn $"Message: {r}"
 }
+
+// If you need to unblock the writer or reader after a certain timeout
+// for example, after 1s
+// You can use ( WithTimeoutOf 1000<ms> ) construct
+async {
+    do! mb |> BoundedMb.put ( WithTimeoutOf 1000<ms> ) "Hello World!"
+}
+// or if the timeout is always the same, you can use partial application
+let put = BoundedMb.put ( WithTimeoutOf 1000<ms> )
+
+async {
+    do! mb |> put "Hello World!"
+}
+// The same applies to the take method
+async {
+    let! r = mb |> BoundedMb.take ( WithTimeoutOf 1000<ms> )
+    printfn $"Message: {r}"
+}
+
+// Once the timeout is triggered, then the code will throw an exception
+// When this happens, the message will no longer be taken in or out
+// Lastly, timouts, especially for short periods of time
+// can be very inaccurate in the async code
+// Please do take this into an account and do not rely on their accuracy
 
 // You can check the maximum message capacity and the current count of stored messages
 async {
@@ -160,14 +188,25 @@ Async.Parallel [
     }
     // Next async workflows would block till the variable is filled 
     async {
-        let! r = v |> SVar.read
+        let! r = v |> SVar.read WithoutTimeout
         printfn $"Value: {r}"
+    }
+    // If you do not want to wait forever
+    // Then you can set up a timeout for a read operation
+    async {
+        try
+            let! r = v |> SVar.read ( WithTimeoutOf 500<ms> )
+            printfn $"Value: {r}"
+        with
+        | _ -> printfn "A timeout occured"
     }
     // This workflow would not block on read
     // because by that time the SVar is already set
+    // However, if it was, WithoutTimeout option will ensure
+    // that it will stay blocked till the SVar is set
     async {
         do! Async.Sleep 2000
-        let! r = v |> SVar.read
+        let! r = v |> SVar.read WithoutTimeout
         printfn $"Value: {r}"
     }
 ]
