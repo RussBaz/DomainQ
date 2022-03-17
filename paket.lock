@@ -26,7 +26,7 @@ NUGET
     NETStandard.Library (2.0.3)
       Microsoft.NETCore.Platforms (>= 1.1)
     Newtonsoft.Json (13.0.1) - restriction: || (== net5.0) (== net6.0) (&& (== netstandard2.0) (>= netcoreapp1.0)) (&& (== netstandard2.1) (>= netcoreapp1.0))
-    NodaTime (3.0.9)
+    NodaTime (3.0.10)
       System.Runtime.CompilerServices.Unsafe (>= 4.7.1)
     NuGet.Frameworks (6.1) - restriction: || (== net5.0) (== net6.0) (&& (== netstandard2.0) (>= netcoreapp1.0)) (&& (== netstandard2.0) (>= netcoreapp2.1)) (&& (== netstandard2.1) (>= netcoreapp1.0)) (&& (== netstandard2.1) (>= netcoreapp2.1))
     NUnit (3.13.2)
