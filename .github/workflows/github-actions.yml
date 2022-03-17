@@ -23,7 +23,7 @@ jobs:
       - name: Build
         run: dotnet build
       - name: Test with the dotnet CLI
-        run: dotnet test -v m
+        run: dotnet test -v m ./DomainQ.Tests
   build_windows:
 
     runs-on: windows-latest
@@ -44,7 +44,7 @@ jobs:
       - name: Build
         run: dotnet build
       - name: Test with the dotnet CLI
-        run: dotnet test -v m
+        run: dotnet test -v m ./DomainQ.Tests
 
   build_macos:
 
@@ -66,4 +66,4 @@ jobs:
       - name: Build
         run: dotnet build
       - name: Test with the dotnet CLI
-        run: dotnet test -v m
+        run: dotnet test -v m ./DomainQ.Tests
