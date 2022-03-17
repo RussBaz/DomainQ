@@ -5,3 +5,10 @@ framework: auto-detect
 
 nuget FSharp.Control.AsyncSeq ~> 3.2
 nuget FSharp.Core >= 5
+
+nuget NodaTime
+
+nuget Microsoft.NET.Test.Sdk
+nuget NUnit
+nuget NUnit3TestAdapter
+nuget FsUnit

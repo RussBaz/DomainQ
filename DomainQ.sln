@@ -11,6 +11,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		LICENSE.txt = LICENSE.txt
 		paket.lock = paket.lock
 		paket.dependencies = paket.dependencies
+		.github\workflows\release.yml = .github\workflows\release.yml
+		.github\workflows\github-actions.yml = .github\workflows\github-actions.yml
 	EndProjectSection
 EndProject
 Global
