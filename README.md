@@ -2,7 +2,7 @@
 [![Build Status](https://img.shields.io/github/workflow/status/RussBaz/DomainQ/.NET%20Core)](https://github.com/russbaz/domainq/actions/workflows/github-actions.yml)
 [![Latest Published Nuget Version](https://img.shields.io/nuget/v/RussBaz.DomainQ)](https://www.nuget.org/packages/RussBaz.DomainQ/)
 
-*docs for version: v2.0.0*
+*docs for version: v2.0.1*
 ### Overview
 F# Bounded Mailbox and other types of queues and simple synchronisation primitives for Async workflows with a secret sauce.
 
@@ -240,6 +240,8 @@ async {
 }
 ```
 ## Changelog
+### 2.0.1 - 17.03.2022
+* Added .Net 6 support
 ### 2.0.0 - 25.08.2021
 * Breaking Changes - interfaces and signatures of existing functions were changed
 * Updated BoundedMb put/take functions to receive timeout options as a parameter
